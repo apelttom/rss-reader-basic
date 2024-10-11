@@ -1,9 +1,23 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using RSSreader.Data;
 var builder = WebApplication.CreateBuilder(args);
+
+// Add dependency injection for Entity Framework
+builder.Services.AddDbContext<RSSreaderContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("RSSreaderContext") ?? throw new InvalidOperationException("Connection string 'RSSreaderContext' not found.")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+
+// Configure database and possibly seed it
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    SeedData.Initialize(services);
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -22,6 +36,6 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Feed}/{action=Homepage}/{id?}");
+    pattern: "{controller=Feed}/{action=Index}/{id?}");
 
 app.Run();
