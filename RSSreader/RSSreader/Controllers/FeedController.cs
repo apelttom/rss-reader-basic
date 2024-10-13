@@ -22,7 +22,7 @@ namespace RSSreader.Controllers
         // GET: Feeds
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Feed.ToListAsync());
+            return View(await _context.Feed.Include(feed => feed.Articles).ToListAsync());
         }
 
         // GET: Feeds/Details/5
@@ -152,6 +152,23 @@ namespace RSSreader.Controllers
         private bool FeedExists(int id)
         {
             return _context.Feed.Any(e => e.FeedId == id);
+        }
+
+        public async Task<IActionResult> ReloadArticles()
+        {
+            var feeds = await _context.Feed.ToListAsync(); // load feeds from DB
+            foreach (var feed in feeds)
+            {
+                var feedLink = feed.FeedLink;
+                // get online version of each feed
+                var onlineFeed = await RssChannelLoader.LoadFeed(feedLink);
+                if (onlineFeed.FeedTitle != feed.FeedTitle)
+                    Console.WriteLine($"Feed under URL: {feedLink} changed title from {feed.FeedTitle} to {onlineFeed.FeedTitle}");
+                feed.Articles = onlineFeed.Articles; // update articles for given feed 
+                _context.Update(feed); // send update to DB
+            }
+            await _context.SaveChangesAsync(); // write all updates to the DB
+            return RedirectToAction(nameof(Index));
         }
     }
 }
