@@ -22,7 +22,10 @@ namespace RSSreader.Controllers
         // GET: Feeds
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Feed.Include(feed => feed.Articles).ToListAsync());
+            return View(await _context.Feed.Include(
+                feed => feed.Articles.OrderByDescending(
+                    article => article.PublishDate)
+                ).ToListAsync());
         }
 
         // GET: Feeds/Details/5

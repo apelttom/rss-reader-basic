@@ -10,7 +10,7 @@ public class Article
     [DataType(DataType.Date)]
     public DateTime PublishDate { get; set; }
     // public string? ImageUrl { get; set; }
-    // public string? Link { get; set; }
+    public string Link { get; set; }
     // public string? LinkUrl { get; set; }
     // public string? LinkText { get; set; }
 }

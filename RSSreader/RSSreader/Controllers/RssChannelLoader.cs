@@ -34,7 +34,8 @@ public static class RssChannelLoader
                 {
                     Title = item.Descendants("title").FirstOrDefault()?.Value ?? "No Article Title",
                     Summary = item.Descendants("description").FirstOrDefault()?.Value ?? "No Article Summary",
-                    PublishDate = pubDate
+                    PublishDate = pubDate,
+                    Link = item.Descendants("link").FirstOrDefault()?.Value ?? "No Article Link"
                 };
                 feed.Articles.Add(article);
             }
