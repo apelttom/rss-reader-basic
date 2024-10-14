@@ -46,11 +46,11 @@
     </thead>
     <tbody>
 @foreach (var item in Model) {
-    <tr data-bs-toggle="collapse" data-bs-target="#articles-@item.FeedId" class="feed-row">
-        <td>
+    <tr class="feed-row">
+        <td data-bs-toggle="collapse" data-bs-target="#articles-@item.FeedId">
             @Html.DisplayFor(modelItem => item.FeedTitle)
         </td>
-        <td>
+        <td data-bs-toggle="collapse" data-bs-target="#articles-@item.FeedId">
             @Html.DisplayFor(modelItem => item.FeedLink)
         </td>
         <td>

@@ -57,14 +57,15 @@ namespace RSSreader.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("FeedId,FeedTitle,FeedLink")] Feed feed)
+        public async Task<IActionResult> Create([Bind("FeedTitle,FeedLink")] Feed feed)
         {
-            if (ModelState.IsValid)
+            if (await RssChannelLoader.IsRssFeedLink(feed.FeedLink))
             {
                 _context.Add(feed);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+            Console.WriteLine("Feed not created");
             return View(feed);
         }
 
@@ -142,14 +143,25 @@ namespace RSSreader.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var feed = await _context.Feed.FindAsync(id);
-            if (feed != null)
+            var feed = await _context.Feed
+                .Include(feed => feed.Articles)
+                .FirstOrDefaultAsync(feed => feed.FeedId == id);
+            if (feed == null)
             {
-                _context.Feed.Remove(feed);
+                return RedirectToAction(nameof(Index));
             }
 
-            await _context.SaveChangesAsync();
-            return RedirectToAction(nameof(Index));
+            try
+            {
+                _context.Feed.Remove(feed);
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateException e)
+            {
+                Console.WriteLine(e);
+                return RedirectToAction(nameof(Delete), new { id, saveChangesError = true });
+            }
         }
 
         private bool FeedExists(int id)

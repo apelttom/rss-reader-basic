@@ -47,4 +47,22 @@ public static class RssChannelLoader
 
         return feed;
     }
+
+    public static async Task<Boolean> IsRssFeedLink(string link)
+    {
+        using HttpClient client = new HttpClient();
+        var response = await client.GetAsync(link);
+        var doc = XDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        // Expecting RSS 2.0 format with channel and item tags
+        var channelDescendants = doc.Descendants("channel").ToList();
+        if (channelDescendants.Any()
+            && channelDescendants.FirstOrDefault()?.Descendants("title").FirstOrDefault()?.Value != null
+            && channelDescendants.FirstOrDefault()?.Descendants("link").FirstOrDefault()?.Value != null
+            && doc.Descendants("item").ToList().Any())
+        {
+            return true;
+        }
+        return false;
+    }
 }
