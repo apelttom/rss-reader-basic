@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Xml;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -20,12 +21,27 @@ namespace RSSreader.Controllers
         }
 
         // GET: Feeds
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(DateTime? fromDate, DateTime? toDate)
         {
-            return View(await _context.Feed.Include(
-                feed => feed.Articles.OrderByDescending(
-                    article => article.PublishDate)
+            // Pass the selected dates back to the view
+            ViewData["FromDate"] = fromDate?.ToString("yyyy-MM-dd");
+            ViewData["ToDate"] = toDate?.ToString("yyyy-MM-dd");
+
+
+            if (!fromDate.HasValue || !toDate.HasValue)
+                return View(await _context.Feed.Include(
+                    feed => feed.Articles
+                        .OrderByDescending(article => article.PublishDate)
                 ).ToListAsync());
+            
+            // https://stackoverflow.com/questions/2739485/how-to-search-between-two-dates-in-linq-to-entity
+            // RIGHT: this will include the last day
+            var endDateExclusive = toDate.Value.AddDays(1);
+            return View(await _context.Feed.Include(
+                feed => feed.Articles
+                    .Where(article => article.PublishDate >= fromDate && article.PublishDate < endDateExclusive)
+                    .OrderByDescending(article => article.PublishDate)
+            ).ToListAsync());
         }
 
         // GET: Feeds/Details/5
@@ -47,8 +63,11 @@ namespace RSSreader.Controllers
         }
 
         // GET: Feeds/Create
-        public IActionResult Create()
+        public IActionResult Create(bool? createError = false)
         {
+            if (createError.GetValueOrDefault())
+                ViewData["ErrorMessage"] =
+                    "RSS Feed link could not be parsed. Please check the XML format.";
             return View();
         }
 
@@ -59,14 +78,20 @@ namespace RSSreader.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("FeedTitle,FeedLink")] Feed feed)
         {
-            if (await RssChannelLoader.IsRssFeedLink(feed.FeedLink))
+            try
             {
-                _context.Add(feed);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                if (await RssChannelLoader.IsRssFeedLink(feed.FeedLink))
+                {
+                    _context.Add(feed);
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                return View(feed);
             }
-            Console.WriteLine("Feed not created");
-            return View(feed);
+            catch (XmlException)
+            {
+                return RedirectToAction(nameof(Create), new { createError = true });
+            }
         }
 
         // GET: Feeds/Edit/5
@@ -110,10 +135,7 @@ namespace RSSreader.Controllers
                     {
                         return NotFound();
                     }
-                    else
-                    {
-                        throw;
-                    }
+                    throw;
                 }
                 return RedirectToAction(nameof(Index));
             }
@@ -121,7 +143,7 @@ namespace RSSreader.Controllers
         }
 
         // GET: Feeds/Delete/5
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int? id, bool? saveChangesError = false)
         {
             if (id == null)
             {
@@ -135,6 +157,12 @@ namespace RSSreader.Controllers
                 return NotFound();
             }
 
+            if (saveChangesError.GetValueOrDefault())
+            {
+                ViewData["ErrorMessage"] =
+                    "Delete failed. Try again, and if the problem persists " +
+                    "see your system administrator.";
+            }
             return View(feed);
         }
 
@@ -157,9 +185,8 @@ namespace RSSreader.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateException e)
+            catch (DbUpdateException)
             {
-                Console.WriteLine(e);
                 return RedirectToAction(nameof(Delete), new { id, saveChangesError = true });
             }
         }
@@ -171,16 +198,18 @@ namespace RSSreader.Controllers
 
         public async Task<IActionResult> ReloadArticles()
         {
-            var feeds = await _context.Feed.ToListAsync(); // load feeds from DB
+            var feeds = await _context.Feed
+                .Include(feed => feed.Articles)
+                .ToListAsync(); // load feeds from DB
             foreach (var feed in feeds)
             {
                 var feedLink = feed.FeedLink;
                 // get online version of each feed
                 var onlineFeed = await RssChannelLoader.LoadFeed(feedLink);
                 if (onlineFeed.FeedTitle != feed.FeedTitle)
-                    Console.WriteLine($"Feed under URL: {feedLink} changed title from {feed.FeedTitle} to {onlineFeed.FeedTitle}");
+                    Console.WriteLine($"Feed under URL: {feedLink} does not match title from {feed.FeedTitle} to {onlineFeed.FeedTitle}");
                 feed.Articles = onlineFeed.Articles; // update articles for given feed 
-                _context.Update(feed); // send update to DB
+                _context.Feed.Update(feed); // send update to DB
             }
             await _context.SaveChangesAsync(); // write all updates to the DB
             return RedirectToAction(nameof(Index));

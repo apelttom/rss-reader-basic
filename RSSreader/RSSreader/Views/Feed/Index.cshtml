@@ -32,6 +32,29 @@
         </button>
     </a>
 </p>
+
+<!-- Button to toggle the filter form -->
+<button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#filterForm" aria-expanded="false" aria-controls="filterForm" style="text-decoration: underline;">
+    Filter Articles
+</button>
+
+<!-- Collapsible filter form -->
+<div class="collapse" id="filterForm">
+    <form method="get" asp-action="Index" class="row g-3">
+        <div class="col-1">
+            <label for="fromDate" class="form-label">Published From</label>
+            <input type="date" id="fromDate" name="fromDate" class="form-control form-control-sm" value="@ViewData["FromDate"]">
+        </div>
+        <div class="col-1">
+            <label for="toDate" class="form-label">Published To</label>
+            <input type="date" id="toDate" name="toDate" class="form-control form-control-sm" value="@ViewData["ToDate"]">
+        </div>
+        <div class="col-2 align-self-end">
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        </div>
+    </form>
+</div>
+
 <table class="table">
     <thead>
         <tr>
@@ -65,7 +88,7 @@
                 @foreach (var article in item.Articles)
                 {
                     <li class="list-group-item">
-                        @article.Title - <a href="@article.Link" target="_blank">Read</a>
+                        @article.Title - <a href="@article.Link" target="_blank">Read</a> (@article.PublishDate)
                     </li>
                 }
             </ul>
